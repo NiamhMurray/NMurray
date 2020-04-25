@@ -250,6 +250,23 @@ def composite_analysis(variable):
     
     return mean_diff, positve_mean_plot, negative_mean_plot, positive_mean, negative_mean
     
+def t_test(var1, var2):
+    """
+    """
+    pr_ttest = np.empty((2736,2))
+    pr_ttest[0], pr_ttest[1]= stats.stats.ttest_ind(var1[:], var2[:], equal_var = True, nan_policy = 'propagate')
+    pr_pvalue = pr_ttest[:,1]
+
+    pr_stippling = np.zeros((2736))
+    for i in range((2736)):
+        if pr_pvalue[i] < 0.05:
+            pr_stippling[i] = pr_pvalue[i]
+        else:
+            pr_stippling[i] = 'nan'
+        
+    plot__stippling = np.resize(pr_stippling, [36,76])
+    
+    return plot__stippling
     
 def stipple_composition_plot(variable, stippling_variable, title):
     """
@@ -515,22 +532,10 @@ composition_plot("Temperature (Degress Celcius) composite for all days \n when S
 composition_plot("Temperature (Degress Celcius) composite for all days \n when SNAO score is negative", temp_negative_mean_plot, 10, 30, 1)
 composition_plot("Temperature (Degress Celcius) composite for the difference \n in means between positive and negative SNAO", temp_mean_diff, -0.7, 1, 0.01)
 
-pr_ttest = np.empty((2736,2))
-pr_ttest[0], pr_ttest[1]= stats.stats.ttest_ind(precip_pos[:], precip_neg[:], equal_var = True, nan_policy = 'propagate')
-pr_pvalue = pr_ttest[:,1]
+pr_stippling = t_test(precip_pos, precip_neg)
+stipple_composition_plot(precip_mean_diff, pr_stippling, "Title")
 
-# =============================================================================
-# pr_stippling = np.zeros((2736))
-# for i in range((2736)):
-#     if pr_pvalue[i] < 0.05:
-#         pr_stippling[i] = pr_pvalue[i]
-#     else:
-#         pr_stippling[i] = 'nan'
-#         
-# plot_pr_stippling = np.resize(pr_stippling, [36,76])
-# 
-# stipple_composition_plot(precip_mean_diff, stippling_variable, plot_pr_stippling, "title")
-# stipple_composition_plot(precip_mean_diff, )
-# 
-# 
-# =============================================================================
+temp_stippling = t_test(temp_pos, temp_neg)
+stipple_composition_plot(temp_mean_diff, temp_stippling, "Title")
+
+
