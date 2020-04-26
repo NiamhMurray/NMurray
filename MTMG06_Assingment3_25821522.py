@@ -248,27 +248,43 @@ def composite_analysis(variable):
     #Find the Difference between positive SNAO and negative SNAO means
     mean_diff = positve_mean_plot - negative_mean_plot
     
-    return mean_diff, positve_mean_plot, negative_mean_plot, positive_mean, negative_mean
+    return mean_diff, positve_mean_plot, negative_mean_plot, positive_mean, negative_mean, positive_snao, negative_snao
     
 def t_test(var1, var2):
     """
     """
-    pr_ttest = np.empty((2736,2))
-    pr_ttest[0], pr_ttest[1]= stats.stats.ttest_ind(var1[:], var2[:], equal_var = True, nan_policy = 'propagate')
-    pr_pvalue = pr_ttest[:,1]
+    re_pos_var = np.resize(var1, [1933, 36, 76])
+    re_neg_var = np.resize(var2, [1839, 36, 76])
+    
+    var_stats = np.empty((36, 76))
+   
+    for i in range((36)):
+        for j in range((76)):
+            ttest = stats.stats.ttest_ind(re_pos_var[:,i,j], re_neg_var[:,i,j], equal_var = True, nan_policy = 'propagate')
+            var_stats[i,j] = ttest[1]
+    del i,j, ttest
 
-    pr_stippling = np.zeros((2736))
-    for i in range((2736)):
-        if pr_pvalue[i] < 0.05:
-            pr_stippling[i] = pr_pvalue[i]
-        else:
-            pr_stippling[i] = 'nan'
-        
-    plot__stippling = np.resize(pr_stippling, [36,76])
     
-    return plot__stippling
+    return var_stats
+
+def welch_t_test(var1, var2):
+    """
+    """
+    re_pos_var = np.resize(var1, [1933, 36, 76])
+    re_neg_var = np.resize(var2, [1839, 36, 76])
     
-def stipple_composition_plot(variable, stippling_variable, title):
+    var_stats = np.empty((36, 76))
+   
+    for i in range((36)):
+        for j in range((76)):
+            ttest = stats.stats.ttest_ind(re_pos_var[:,i,j], re_neg_var[:,i,j], equal_var = False, nan_policy = 'propagate')
+            var_stats[i,j] = ttest[1]
+    del i,j, ttest
+
+    
+    return var_stats
+    
+def stipple_composition_plot(title, variable, stippling_variable, xmin, xmax, xinterval ):
     """
     """
     fig_comp = plt.figure()
@@ -280,11 +296,11 @@ def stipple_composition_plot(variable, stippling_variable, title):
     m_comp.drawmeridians(np.arange(-60,60,10))
     grid = np.meshgrid(p_lons, p_lats)
     x,y = m_comp(*grid)
-    dp_clevs = [-2, -1, -0.5, 0, 0.5, 1, 2]
-    cs_cd = m_comp.contourf(x,y, variable, dp_clevs, extend = 'both', cmap = 'BrBG')
-    cbar_cd = m_comp.colorbar(cs_cd, location = 'right')
-    pv_levs = [0, 0.05, 1]
-    m_comp.contourf(x,y, stippling_variable, pv_levs, extend = 'neither', hatches = ['.', None])
+    dp_clevs = np.arange(xmin, xmax, xinterval)
+    cs_comp = m_comp.contourf(x,y, variable, dp_clevs, extend = 'both', cmap = 'BrBG')
+    cbar= m_comp.colorbar(cs_comp, location = 'right')
+    pv_levs = [0, 0.025, 1]
+    m_comp.contourf(x,y, stippling_variable, pv_levs, extend = 'neither', colors='none', hatches = ['.', None])
     fig_comp.show()
         
     
@@ -378,164 +394,169 @@ p_mean = a_pr.mean(axis = 0)
 t_mean = a_temp.mean(axis = 0)
 
 
-#Task 1.1 - Plot the Climatological Mean_MSLP_Field over northern Althantic and Europe 
-Contour_Plot(mu, "Mean MSLP Field (hPa; Jul/Aug, 1900-2010, daily)")
-
-#Task 1.2 - Calculate Data and Covariance Matrix 
-x, x_tilda, s, f, m, columns = data_covariance_matrix()
-
-#Task 1.3 - Compute the Eigenvalues and Eigenvectors of the covariance martix 
-lam, e = np.linalg.eig(s)
-
-#Task 1.3 - Resize E (Eigenvectors/Loadings) to plot the first 4 PC loadings
-alt_e1 = np.resize(e[:,0], [19,49])
-alt_e2 = np.resize(e[:,1], [19,49])
-alt_e3 = np.resize(e[:,2], [19,49])
-alt_e4 = np.resize(e[:,3], [19,49])
-
-#Task 1.3 - Plot countour plots for 4 PC Loadings 
-PCA_Contour_plot(alt_e1, "PCA Loading 1 Mean MSLP Field \n (hPa; Jul/Aug, 1900-2010, daily)")
-PCA_Contour_plot(alt_e2, "PCA Loading 2 Mean MSLP Field \n (hPa; Jul/Aug, 1900-2010, daily)")
-PCA_Contour_plot(alt_e3, "PCA Loading 3 Mean MSLP Field \n (hPa; Jul/Aug, 1900-2010, daily)")
-PCA_Contour_plot(alt_e4, "PCA Loading 4 Mean MSLP Field \n (hPa; Jul/Aug, 1900-2010, daily)")
-
-#Task 1.3 - Rescaled countour plot for 4 PCA Loadings - Scaled to Pressure Anomlilies 
-f_inverse = np.linalg.inv(f)
-u = np.dot(x_tilda , e)
-new_e = np.dot(e, f_inverse)
-re_scaled = new_e * np.std(u[:,0])
-new_alt_e1 = np.resize(re_scaled[:,0], [19,49])
-new_alt_e2 = np.resize(re_scaled[:,1], [19,49])
-new_alt_e3 = np.resize(re_scaled[:,2], [19,49])
-new_alt_e4 = np.resize(re_scaled[:,3], [19,49])
-
-PCA_Contour_plot_scaled(new_alt_e1, " Rescaled PC Loading 1 Mean MSLP Field \n (hPa; Jul/Aug, 1900-2010, daily)")
-PCA_Contour_plot_scaled(new_alt_e2, "Rescaled PC Loading 2 Mean MSLP Field \n (hPa; Jul/Aug, 1900-2010, daily)")
-PCA_Contour_plot_scaled(new_alt_e3, "Rescaled PC Loading 3 Mean MSLP Field \n (hPa; Jul/Aug, 1900-2010, daily)")
-PCA_Contour_plot_scaled(new_alt_e4, "Rescaled PC Loading 4 Mean MSLP Field \n (hPa; Jul/Aug, 1900-2010, daily)")
-
-
-# Task 1.4.1 - Calculate U containning PCA Scores within the Rows for U  
-
-u = np.dot(x_tilda , e)
-
-#Task 1.4.1 - Plot Time Series of Principal component Scores for the leading PC Mode.
-plot_time_series(times, u[:,0], "g", "Time Series of Principial Component Scores \n for the Leading PC (SNAO) Mode", "Time (Years)", "PCA Score")     
-
-#Task 1.4.2 - Plot a Contour plot for the pressure field for a day where all PC scores equal 0
-mean = np.resize(m, [19,49])
-Contour_Plot(mean, "Pressure Field for a day where all PC Scores are Equal Zero")
-
-#Calculate Standard Deviation of the SNAO Timeseries 
-sd = np.std(u[:,0])
-
-#Task 1.4.2 - Plot a Contour plot for the pressure field for a day where SNAO Score equals SD and all other PC scores equal 0
-#Scale Eigen Vectors to allow conversion back to Pressure Values
-f_inverse = np.linalg.inv(f)
-scaled_eigen_vectors = np.dot(e, f_inverse )
-
-#Create co-efficents using first row of U and replace SNAO Mode with SD
-coeff_1= np.full([1,931], sd)
-scalling_1 = (coeff_1*scaled_eigen_vectors[:,0])
-day_1 = np.resize(m+scalling_1,[19,49])
-Contour_Plot(day_1, "Pressure Field for a day where SNAO Score is Equal \n to Standard Deviation of SNAO Time Series")
-
-#Task 1.4.2 - Plot a Contour plot for the pressure field for a day where SNAO Score equals -SD and all other PC scores equal 0
-coeff_2= np.full([1,931], -sd)
-scalling_2 = (coeff_2*scaled_eigen_vectors[:,0])
-day_2 = np.resize(m+scalling_2,[19,49])
-Contour_Plot(day_2, "Pressure Field for a day where all SNAO Score is Equal \n to minus Standard Deviation of SNAO Time Series")
-
-#Task 1.5.1 - Plot a Scree plot for the First 12 PCA Modes 
-screeval = lam[0:12]
-s_mean = 0
-s_dev = screeval**0.5
-sigma_squared = s_dev**2
-sigma_squared_total = sum(sigma_squared)
-
-
-var_eigen = np.zeros(shape = (12,1))
-for i in range (len(var_eigen)):
-    var_eigen[i] = (screeval[i]/sigma_squared_total)*100
-    
-cum_sum = np.cumsum(var_eigen)
-
-fig, ax1 = plt.subplots()
-ax1.set_xlabel('Principle Component')
-ax2 = ax1.twinx()
-ax1.set_ylabel('Standard Deviation', color = 'g')
-ax1.plot(s_dev, color = 'g')
-ax2.set_ylabel('Cumulative Explained Variance (%)', color = 'b')
-ax2.plot(cum_sum, color = 'b')
-plt.title("Scree Plot Showing Individual and Cumulative Variance")
-plt.grid(True)
-fig.tight_layout()
-plt.show()
-
-#Task 1.5.2
-#Sampling uncertainty under asymtopic assumptions
-#Gaussian
-n = 6682
-mean_lam = np.mean(lam)
-sample_est_upper = np.zeros(len(screeval))
-sample_est_lower = np.zeros(len(screeval))
-#95th Percentile value = 1.96
-for j in range(len(screeval)):
-    sample_est_lower[j]=(((-1.96/(n/2)**0.5)*screeval[j])+screeval[j])
-    
-for k in range(len(screeval)):
-    sample_est_upper[k]=(((1.96/(n/2)**0.5)*screeval[k])+screeval[k])
-
-sampling_princ = np.zeros((12,3))
-sampling_princ[:,0]=np.arange(0,12)
-sampling_princ[:,1]=sample_est_lower
-sampling_princ[:,2]=sample_est_upper
-
-plt.figure()
-plt.plot(screeval, color = "g")
-plt.xlabel("Principle Component")
-plt.ylabel("Eigenvalue")
-plt.title("Scree Plot showing Eigen values for first 12 PC modes \n and theor 95% confidence interval values")
-for l in range(len(screeval)):
-    plt.vlines(x = sampling_princ[[l],0], ymin = sampling_princ[[l],1], ymax = sampling_princ[[l],2])
-    del[l]
-plt.vlines(0,0,0, color= "purple", label = "95th Confidence Intervals")
-plt.legend()
-   
-#Task 1.6 - Locate the array index that corresponds to the 20th of July 2007
-d_flood = dt.datetime(2007, 7, 20, 12)
-fl_i = np.where(times == d_flood)[0][0]
-
-#Plot of Pressure Distribution on the 20th of July 2007 over British Isles
-#Showing Depression over a Sepression over south east England and over the Channel 
-depression = a_p[6653,:, :]
-Plot_Depression(depression, "Pressure Distribution on the 20th of July 2007 over British Isles")
-
-#Set Coefficents using the correct array index from u
-#Calculate pressure Field Using Coefficents and scaled Eigen Vectors
-#Plot the New Pressure Field over British Isles.
-truncated_Depression_plot(5, "Pressure Distribution field approximation \n for the 20th of July 2007 over British Isles \n using 5 Loadings")
-truncated_Depression_plot(20, "Pressure Distribution field approximation \n for the 20th of July 2007 over British Isles \n using 20 Loadings")
-truncated_Depression_plot(200, "Pressure Distribution field approximation \n for the 20th of July 2007 over British Isles \n using 200 Loadings")
-   
+# =============================================================================
+# #Task 1.1 - Plot the Climatological Mean_MSLP_Field over northern Althantic and Europe 
+# Contour_Plot(mu, "Mean MSLP Field (hPa; Jul/Aug, 1900-2010, daily)")
+# 
+# #Task 1.2 - Calculate Data and Covariance Matrix 
+# x, x_tilda, s, f, m, columns = data_covariance_matrix()
+# 
+# #Task 1.3 - Compute the Eigenvalues and Eigenvectors of the covariance martix 
+# lam, e = np.linalg.eig(s)
+# 
+# #Task 1.3 - Resize E (Eigenvectors/Loadings) to plot the first 4 PC loadings
+# alt_e1 = np.resize(e[:,0], [19,49])
+# alt_e2 = np.resize(e[:,1], [19,49])
+# alt_e3 = np.resize(e[:,2], [19,49])
+# alt_e4 = np.resize(e[:,3], [19,49])
+# 
+# #Task 1.3 - Plot countour plots for 4 PC Loadings 
+# PCA_Contour_plot(alt_e1, "PCA Loading 1 Mean MSLP Field \n (hPa; Jul/Aug, 1900-2010, daily)")
+# PCA_Contour_plot(alt_e2, "PCA Loading 2 Mean MSLP Field \n (hPa; Jul/Aug, 1900-2010, daily)")
+# PCA_Contour_plot(alt_e3, "PCA Loading 3 Mean MSLP Field \n (hPa; Jul/Aug, 1900-2010, daily)")
+# PCA_Contour_plot(alt_e4, "PCA Loading 4 Mean MSLP Field \n (hPa; Jul/Aug, 1900-2010, daily)")
+# 
+# #Task 1.3 - Rescaled countour plot for 4 PCA Loadings - Scaled to Pressure Anomlilies 
+# f_inverse = np.linalg.inv(f)
+# u = np.dot(x_tilda , e)
+# new_e = np.dot(e, f_inverse)
+# re_scaled = new_e * np.std(u[:,0])
+# new_alt_e1 = np.resize(re_scaled[:,0], [19,49])
+# new_alt_e2 = np.resize(re_scaled[:,1], [19,49])
+# new_alt_e3 = np.resize(re_scaled[:,2], [19,49])
+# new_alt_e4 = np.resize(re_scaled[:,3], [19,49])
+# 
+# PCA_Contour_plot_scaled(new_alt_e1, " Rescaled PC Loading 1 Mean MSLP Field \n (hPa; Jul/Aug, 1900-2010, daily)")
+# PCA_Contour_plot_scaled(new_alt_e2, "Rescaled PC Loading 2 Mean MSLP Field \n (hPa; Jul/Aug, 1900-2010, daily)")
+# PCA_Contour_plot_scaled(new_alt_e3, "Rescaled PC Loading 3 Mean MSLP Field \n (hPa; Jul/Aug, 1900-2010, daily)")
+# PCA_Contour_plot_scaled(new_alt_e4, "Rescaled PC Loading 4 Mean MSLP Field \n (hPa; Jul/Aug, 1900-2010, daily)")
+# 
+# 
+# # Task 1.4.1 - Calculate U containning PCA Scores within the Rows for U  
+# 
+# u = np.dot(x_tilda , e)
+# 
+# #Task 1.4.1 - Plot Time Series of Principal component Scores for the leading PC Mode.
+# plot_time_series(times, u[:,0], "g", "Time Series of Principial Component Scores \n for the Leading PC (SNAO) Mode", "Time (Years)", "PCA Score")     
+# 
+# #Task 1.4.2 - Plot a Contour plot for the pressure field for a day where all PC scores equal 0
+# mean = np.resize(m, [19,49])
+# Contour_Plot(mean, "Pressure Field for a day where all PC Scores are Equal Zero")
+# 
+# #Calculate Standard Deviation of the SNAO Timeseries 
+# sd = np.std(u[:,0])
+# 
+# #Task 1.4.2 - Plot a Contour plot for the pressure field for a day where SNAO Score equals SD and all other PC scores equal 0
+# #Scale Eigen Vectors to allow conversion back to Pressure Values
+# f_inverse = np.linalg.inv(f)
+# scaled_eigen_vectors = np.dot(e, f_inverse )
+# 
+# #Create co-efficents using first row of U and replace SNAO Mode with SD
+# coeff_1= np.full([1,931], sd)
+# scalling_1 = (coeff_1*scaled_eigen_vectors[:,0])
+# day_1 = np.resize(m+scalling_1,[19,49])
+# Contour_Plot(day_1, "Pressure Field for a day where SNAO Score is Equal \n to Standard Deviation of SNAO Time Series")
+# 
+# #Task 1.4.2 - Plot a Contour plot for the pressure field for a day where SNAO Score equals -SD and all other PC scores equal 0
+# coeff_2= np.full([1,931], -sd)
+# scalling_2 = (coeff_2*scaled_eigen_vectors[:,0])
+# day_2 = np.resize(m+scalling_2,[19,49])
+# Contour_Plot(day_2, "Pressure Field for a day where all SNAO Score is Equal \n to minus Standard Deviation of SNAO Time Series")
+# 
+# #Task 1.5.1 - Plot a Scree plot for the First 12 PCA Modes 
+# screeval = lam[0:12]
+# s_mean = 0
+# s_dev = screeval**0.5
+# sigma_squared = s_dev**2
+# sigma_squared_total = sum(sigma_squared)
+# 
+# 
+# var_eigen = np.zeros(shape = (12,1))
+# for i in range (len(var_eigen)):
+#     var_eigen[i] = (screeval[i]/sigma_squared_total)*100
+#     
+# cum_sum = np.cumsum(var_eigen)
+# 
+# fig, ax1 = plt.subplots()
+# ax1.set_xlabel('Principle Component')
+# ax2 = ax1.twinx()
+# ax1.set_ylabel('Standard Deviation', color = 'g')
+# ax1.plot(s_dev, color = 'g')
+# ax2.set_ylabel('Cumulative Explained Variance (%)', color = 'b')
+# ax2.plot(cum_sum, color = 'b')
+# plt.title("Scree Plot Showing Individual and Cumulative Variance")
+# plt.grid(True)
+# fig.tight_layout()
+# plt.show()
+# 
+# #Task 1.5.2
+# #Sampling uncertainty under asymtopic assumptions
+# #Gaussian
+# n = 6682
+# mean_lam = np.mean(lam)
+# sample_est_upper = np.zeros(len(screeval))
+# sample_est_lower = np.zeros(len(screeval))
+# #95th Percentile value = 1.96
+# for j in range(len(screeval)):
+#     sample_est_lower[j]=(((-1.96/(n/2)**0.5)*screeval[j])+screeval[j])
+#     
+# for k in range(len(screeval)):
+#     sample_est_upper[k]=(((1.96/(n/2)**0.5)*screeval[k])+screeval[k])
+# 
+# sampling_princ = np.zeros((12,3))
+# sampling_princ[:,0]=np.arange(0,12)
+# sampling_princ[:,1]=sample_est_lower
+# sampling_princ[:,2]=sample_est_upper
+# 
+# plt.figure()
+# plt.plot(screeval, color = "g")
+# plt.xlabel("Principle Component")
+# plt.ylabel("Eigenvalue")
+# plt.title("Scree Plot showing Eigen values for first 12 PC modes \n and theor 95% confidence interval values")
+# for l in range(len(screeval)):
+#     plt.vlines(x = sampling_princ[[l],0], ymin = sampling_princ[[l],1], ymax = sampling_princ[[l],2])
+#     del[l]
+# plt.vlines(0,0,0, color= "purple", label = "95th Confidence Intervals")
+# plt.legend()
+#    
+# #Task 1.6 - Locate the array index that corresponds to the 20th of July 2007
+# d_flood = dt.datetime(2007, 7, 20, 12)
+# fl_i = np.where(times == d_flood)[0][0]
+# 
+# #Plot of Pressure Distribution on the 20th of July 2007 over British Isles
+# #Showing Depression over a Sepression over south east England and over the Channel 
+# depression = a_p[6653,:, :]
+# Plot_Depression(depression, "Pressure Distribution on the 20th of July 2007 over British Isles")
+# 
+# #Set Coefficents using the correct array index from u
+# #Calculate pressure Field Using Coefficents and scaled Eigen Vectors
+# #Plot the New Pressure Field over British Isles.
+# truncated_Depression_plot(5, "Pressure Distribution field approximation \n for the 20th of July 2007 over British Isles \n using 5 Loadings")
+# truncated_Depression_plot(20, "Pressure Distribution field approximation \n for the 20th of July 2007 over British Isles \n using 20 Loadings")
+# truncated_Depression_plot(200, "Pressure Distribution field approximation \n for the 20th of July 2007 over British Isles \n using 200 Loadings")
+#    
+# =============================================================================
 # Task 1.7.1 - create composite Plot for temperature and Temperature for pos and neg SNAO
 
-precip_mean_diff, precip_positve_mean_plot, precip_negative_mean_plot, precip_pos, precip_neg = composite_analysis(a_pr)
+precip_mean_diff, precip_positve_mean_plot, precip_negative_mean_plot, precip_pos, precip_neg, positive_snao_pr, negative_snao_pr = composite_analysis(a_pr)
 
 composition_plot("Precipitation (mm) composite for all days \n when SNAO score is positive", precip_positve_mean_plot, 0, 5, .1)
 composition_plot("Precipitation (mm) composite for all days \n when SNAO score is negative", precip_negative_mean_plot, 0, 5, .1)
 composition_plot("Precipitation (mm) composite for the difference \n in means between positive and negative SNAO", precip_mean_diff, -1, 1, 0.01)
 
-temp_mean_diff, temp_positve_mean_plot, temp_negative_mean_plot, temp_pos, temp_neg = composite_analysis(a_temp)
+temp_mean_diff, temp_positve_mean_plot, temp_negative_mean_plot, temp_pos, temp_neg, positive_snao_temp, negative_snao_temp = composite_analysis(a_temp)
 
 composition_plot("Temperature (Degress Celcius) composite for all days \n when SNAO score is positive",temp_positve_mean_plot, 10, 30, 1)
 composition_plot("Temperature (Degress Celcius) composite for all days \n when SNAO score is negative", temp_negative_mean_plot, 10, 30, 1)
 composition_plot("Temperature (Degress Celcius) composite for the difference \n in means between positive and negative SNAO", temp_mean_diff, -0.7, 1, 0.01)
 
-pr_stippling = t_test(precip_pos, precip_neg)
-stipple_composition_plot(precip_mean_diff, pr_stippling, "Title")
+pr_stippling = t_test(positive_snao_pr, negative_snao_pr)
+stipple_composition_plot("Plot of Precip composition, \n with stippling indicatating where the diffference in means is signifigant, \n found using t-test", precip_mean_diff, pr_stippling, -1, 1, 0.01)
 
-temp_stippling = t_test(temp_pos, temp_neg)
-stipple_composition_plot(temp_mean_diff, temp_stippling, "Title")
+temp_stippling = t_test(positive_snao_temp, negative_snao_temp)
+stipple_composition_plot("Plot of Tmp composition, \n with stippling indicatating where the diffference in means is signifigant, \n found using t-test", temp_mean_diff, temp_stippling, -0.7, 1, 0.01)
+
+temp_welch_stippling = welch_t_test(positive_snao_temp, negative_snao_temp)
+stipple_composition_plot("Plot of Precip composition, \n with stippling indicatating where the diffference in means is signifigant, \n found using Welch t-test", temp_mean_diff, temp_welch_stippling, -0.7, 1, 0.01)
 
 
